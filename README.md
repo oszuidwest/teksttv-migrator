@@ -1,6 +1,6 @@
 # teksttv-migrator
 
-Eenmalige migratie van Tekst TV in het Streekomroep-thema en `zw-ttvgpt` naar de zelfstandige TekstTV-plugin.
+Eenmalige migratie van Tekst TV in het [Streekomroep-thema](https://github.com/oszuidwest/streekomroep-wp) en [`zw-ttvgpt`](https://github.com/oszuidwest/zw-ttvgpt) naar de zelfstandige [TekstTV-plugin](https://github.com/oszuidwest/teksttv-wp-plugin).
 
 ## Bestanden
 
@@ -14,7 +14,7 @@ Eenmalige migratie van Tekst TV in het Streekomroep-thema en `zw-ttvgpt` naar de
 - PHP 8.3 of nieuwer
 - WP-CLI op de server of in de beheercontainer
 - Een recente databaseback-up buiten de webroot en deze repository
-- De releasebestanden van TekstTV en TekstTV Streekomroep Extensions
+- De releasebestanden van TekstTV en [TekstTV Streekomroep Extensions](https://github.com/oszuidwest/teksttv-wp-extensions)
 
 Controleer voor ieder commando het WordPress-pad en de omgeving:
 
