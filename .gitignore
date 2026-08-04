@@ -1,0 +1,13 @@
+# Production database dumps and exports. The handwritten analysis query is safe
+# to track and is explicitly allowed below.
+*.sql
+!analysis/analyze.sql
+*.sql.gz
+*.sql.zst
+*.sql.zip
+*.dump
+*.dump.gz
+
+# Conventional local storage locations for sensitive exports.
+/backups/
+/dumps/
