@@ -1,22 +1,22 @@
 # teksttv-migrator
 
-Migratie van Tekst TV uit het Streekomroep-thema en `zw-ttvgpt` naar de zelfstandige TekstTV-plugin.
+Eenmalige migratie van Tekst TV in het Streekomroep-thema en `zw-ttvgpt` naar de zelfstandige TekstTV-plugin.
 
-## Inhoud
+## Bestanden
 
-- `migrate-teksttv-posts.php` — WP-CLI-migrator voor berichtmeta.
-- `analysis/analyze.sql` — analysequeries voor een lokale databasekopie.
-- `analysis/FINDINGS.md` — bevindingen uit de productiedump van 2026-08-04.
+- `migrate-teksttv-posts.php`: WP-CLI-script voor de berichtmeta
+- `analysis/analyze.sql`: analysequeries voor een lokale databasekopie
+- `analysis/FINDINGS.md`: bevindingen uit de productiedump van 4 augustus 2026
 
 ## Vereisten
 
-- WordPress 7.0 of nieuwer.
-- PHP 8.3 of nieuwer.
-- WP-CLI op de server of in de gebruikte beheercontainer.
-- Een actuele databaseback-up buiten de webroot en buiten deze repository.
-- De release-ZIP van TekstTV en, voor de Streekomroep-tickers, de release-ZIP van TekstTV Streekomroep Extensions.
+- WordPress 7.0 of nieuwer
+- PHP 8.3 of nieuwer
+- WP-CLI op de server of in de beheercontainer
+- Een recente databaseback-up buiten de webroot en deze repository
+- De releasebestanden van TekstTV en TekstTV Streekomroep Extensions
 
-Controleer vóór ieder WP-CLI-commando dat het juiste WordPress-installatiepad en de juiste omgeving worden geraakt:
+Controleer voor ieder commando het WordPress-pad en de omgeving:
 
 ```bash
 wp core version --path=/path/to/wordpress
@@ -25,75 +25,77 @@ wp option get home --path=/path/to/wordpress
 
 Voeg bij multisite ook `--url=<site-url>` toe. De voorbeelden hieronder gaan uit van een single-site-installatie.
 
-## Installatie en bestandslocaties
+## Installatie
 
-Gebruik bij voorkeur de gepubliceerde release-ZIP's; een ongebouwde Git-checkout van TekstTV mist `vendor/` en de gebouwde admin-assets.
+Gebruik de gepubliceerde releases. Een Git-checkout van TekstTV bevat niet automatisch `vendor/` en de gebouwde adminbestanden.
 
-Upload de plugins via **Plugins → Nieuwe plugin → Plugin uploaden**, of installeer ze inactief met WP-CLI:
+Installeer beide plugins via het WordPress-beheer of met WP-CLI:
 
 ```bash
 wp plugin install /secure/path/teksttv-<version>.zip --path=/path/to/wordpress
 wp plugin install /secure/path/teksttv-wp-extensions-<version>.zip --path=/path/to/wordpress
 ```
 
-Na installatie horen de hoofdbestanden rechtstreeks in deze mappen te staan:
+Controleer daarna of de hoofdbestanden hier staan:
 
 ```text
 wp-content/plugins/teksttv/teksttv.php
 wp-content/plugins/teksttv-wp-extensions/teksttv-wp-extensions.php
 ```
 
-De migrator is geen WordPress-plugin. Plaats `migrate-teksttv-posts.php` tijdelijk op een afgeschermde locatie, bij voorkeur buiten de webroot, en voer hem met een absoluut pad uit. Verwijder het bestand na de migratie van de server.
+De migrator is geen plugin. Plaats `migrate-teksttv-posts.php` tijdelijk buiten de webroot en voer het script met een absoluut pad uit. Verwijder het na de migratie van de server.
 
-De berichtmigratie vereist alleen WordPress core. TekstTV en de extensie mogen tijdens de migratie nog inactief zijn. Voor configuratie en feedvalidatie moet TekstTV wel actief zijn; activeer de extensie daarna, omdat die van TekstTV en het actieve Streekomroep-thema afhankelijk is.
+De migratie heeft alleen WordPress core nodig. TekstTV en de extensie mogen nog inactief zijn. Activeer voor de configuratie en feedcontrole eerst TekstTV en daarna de extensie.
 
-## Wat wordt gemigreerd
+## Gemigreerde gegevens
 
-De migrator selecteert niet-verwijderde berichten van posttype `post` waarvoor `post_in_kabelkrant = 1` en niet-lege kabelkrantcontent aanwezig zijn.
+Het script selecteert alle niet-verwijderde berichten van het type `post` met `post_in_kabelkrant = 1` en niet-lege kabelkrantcontent.
 
-| Bron (ACF) | Doel | Transformatie |
-|----|----|----|
-| `post_in_kabelkrant` = `1` | `_teksttv_active` = `1` | Selectiecriterium en activatie. |
-| `post_kabelkrant_content` | `_teksttv_content` | Whitespace naar één spatie, daarna `wpautop`; exact één `<p>`. |
-| `post_kabelkrant_content_gpt` | `_teksttv_ai_body` | Dezelfde transformatie, alleen bij een niet-lege AI-baseline. |
+| Bronveld | Doelveld | Bewerking |
+| --- | --- | --- |
+| `post_in_kabelkrant` = `1` | `_teksttv_active` = `1` | Selectie en activatie |
+| `post_kabelkrant_content` | `_teksttv_content` | Whitespace samenvoegen en daarna `wpautop`; altijd één `<p>` |
+| `post_kabelkrant_content_gpt` | `_teksttv_ai_body` | Dezelfde bewerking, als een AI-baseline aanwezig is |
 
-De identieke contenttransformatie zorgt dat de nieuwe AI-audit dezelfde `trim()`-vergelijking kan uitvoeren als de oude audit.
+Dezelfde bewerking voor content en AI-baseline is nodig voor de bestaande `trim()`-vergelijking in de AI-audit.
 
-Niet gemigreerd, omdat deze velden volgens de productieanalyse niet werden gebruikt:
+Deze gegevens worden niet gemigreerd omdat ze volgens de productieanalyse niet werden gebruikt:
 
-- begin-/einddatum en weekdagen;
-- extra afbeeldingen en categorie-afbeeldingen;
-- campagnes en campagnegroepen;
-- kanaal-, loop-, ticker-, weer-, preview- en AI-instellingen.
+- begin- en einddatum en weekdagen
+- extra afbeeldingen en categorie-afbeeldingen
+- campagnes en campagnegroepen
+- kanaal-, loop-, ticker-, weer-, preview- en AI-instellingen
 
-Die configuratie wordt tijdens de cutover handmatig ingesteld.
+Stel deze configuratie tijdens de cutover handmatig in.
 
-## Commando's
+## Gebruik
+
+Begin altijd met een dry-run. Zonder het argument `migrate` schrijft het script niets.
 
 ```bash
-# Volledige dry-run; schrijft niets.
+# Volledige dry-run
 wp eval-file /secure/path/migrate-teksttv-posts.php --path=/path/to/wordpress
 
-# Werkelijke migratie.
-wp eval-file /secure/path/migrate-teksttv-posts.php migrate --path=/path/to/wordpress
-
-# Test de eerste 100 kandidaten.
+# Eerste 100 kandidaten testen
 wp eval-file /secure/path/migrate-teksttv-posts.php limit=100 --path=/path/to/wordpress
 wp eval-file /secure/path/migrate-teksttv-posts.php migrate limit=100 --path=/path/to/wordpress
 
-# Maak de oude bron opnieuw leidend; lees eerst de waarschuwing hieronder.
+# Volledige migratie
+wp eval-file /secure/path/migrate-teksttv-posts.php migrate --path=/path/to/wordpress
+
+# Bestaande doelcontent overschrijven
 wp eval-file /secure/path/migrate-teksttv-posts.php migrate overwrite --path=/path/to/wordpress
 ```
 
-Onbekende argumenten, queryfouten en niet-geslaagde metawijzigingen stoppen de run met een foutstatus. De migrator leest postmeta per batch en leegt nooit de gedeelde objectcache.
+Zonder `overwrite` blijft bestaande `_teksttv_content` staan. Het script herstelt wel ontbrekende `_teksttv_active`- en `_teksttv_ai_body`-velden. Een opgeslagen `_teksttv_active = 0` blijft behouden. Daardoor kan een afgebroken migratie veilig opnieuw worden gestart.
 
-Zonder `overwrite` blijft bestaande `_teksttv_content` behouden. Ontbrekende `_teksttv_active`- en `_teksttv_ai_body`-velden worden wel hersteld, terwijl een bewust opgeslagen `_teksttv_active = 0` behouden blijft. Daardoor kan een onderbroken migratie veilig opnieuw worden gestart.
+Met `overwrite` wordt de oude bron opnieuw leidend. Daarbij kan ook een verouderde `_teksttv_ai_body` worden verwijderd. Gebruik dit alleen zolang niemand de content in TekstTV heeft aangepast.
 
-Met `overwrite` wordt de oude bron exact leidend, inclusief verwijdering van een stale `_teksttv_ai_body`. Gebruik dit alleen zolang niemand content in de nieuwe plugin heeft aangepast; anders kunnen handmatige wijzigingen verloren gaan.
+Onbekende argumenten, queryfouten en mislukte metawijzigingen stoppen het script. Berichtmeta wordt in batches gelezen; de gedeelde objectcache wordt niet geleegd.
 
 ## Verwachte dry-run
 
-Voor de geanalyseerde productiedump gaf de eerste dry-run:
+De eerste dry-run op de productiedump van 4 augustus 2026 gaf:
 
 ```text
 Would migrate content: 18131
@@ -104,8 +106,6 @@ Would remove stale AI baselines: 0
 Source posts with AI baseline: 4548
   of which unmodified vs content (audit check): 1285
 ```
-
-Dit betekent dat de doelmeta nog leeg is en alle kandidaten klaarstaan. Aantallen kunnen stijgen als na 2026-08-04 nieuwe bronberichten zijn toegevoegd.
 
 Na een volledige migratie hoort een nieuwe dry-run geen wijzigingen meer voor te stellen:
 
@@ -119,55 +119,57 @@ Source posts with AI baseline: 4548
   of which unmodified vs content (audit check): 1285
 ```
 
+De aantallen kunnen afwijken als na 4 augustus 2026 nieuwe bronberichten zijn toegevoegd.
+
 ## Productierunbook
 
-### 1. Voorbereiden
+### Voorbereiding
 
-1. Kondig een kort redactieslot aan of beperk de tijd tussen migratie en cutover.
-2. Controleer `--path` en, bij multisite, `--url` tegen de bedoelde productieomgeving.
+1. Kondig een kort redactieslot aan of houd de tijd tussen migratie en cutover zo kort mogelijk.
+2. Controleer `--path` en bij multisite ook `--url`.
 3. Maak een databaseback-up op een afgeschermde locatie:
 
    ```bash
    wp db export /secure/backup/path/before-teksttv-migration.sql --path=/path/to/wordpress
    ```
 
-4. Installeer de release-ZIP's van TekstTV en TekstTV Streekomroep Extensions. Ze mogen nog inactief blijven.
+4. Installeer TekstTV en TekstTV Streekomroep Extensions. Laat ze zo nodig nog inactief.
 5. Plaats de migrator tijdelijk buiten de webroot.
 
-### 2. Berichtmeta migreren
+### Berichtmeta migreren
 
-1. Draai de volledige dry-run en vergelijk de totalen met de verwachte waarden hierboven.
-2. Onderzoek onverwachte afwijkingen voordat er wordt geschreven.
-3. Draai de werkelijke migratie zonder `overwrite`.
-4. Draai direct daarna opnieuw de dry-run. Alle voorgestelde wijzigingen moeten nul zijn.
+1. Draai de volledige dry-run en controleer de totalen.
+2. Onderzoek onverwachte verschillen voordat je gegevens schrijft.
+3. Draai de migratie zonder `overwrite`.
+4. Draai meteen opnieuw een dry-run. Alle voorgestelde wijzigingen moeten nul zijn.
 
-De migrator kan vóór pluginactivatie worden uitgevoerd. Wijzigingen die redacteuren daarna nog in het oude systeem maken, worden niet automatisch naar bestaande `_teksttv_content` gekopieerd. Gebruik daarom een redactieslot of voer vlak vóór cutover een laatste `migrate overwrite` uit, maar uitsluitend als de nieuwe TekstTV-content nog niet handmatig is bewerkt.
+Wijzigingen in het oude systeem worden na de migratie niet automatisch gekopieerd. Gebruik daarom een redactieslot. Een laatste `migrate overwrite` vlak voor de cutover kan alleen als de nieuwe TekstTV-content nog niet handmatig is bewerkt.
 
-### 3. Plugins activeren en configureren
+### Plugins configureren
 
 1. Activeer eerst **TekstTV** en daarna **TekstTV Streekomroep Extensions**.
-2. Controleer dat het Streekomroep-thema actief is; zonder dat thema kan de extensie geen programmatickers registreren.
-3. Configureer onder **Tekst TV → Instellingen**:
-    - kanalen `tv1` en `tv2`;
-    - gewenste features en standaardweergaveduren;
-    - taxonomie `regio` als ingeschakelde taxonomie;
-    - OpenWeather One Call 3.0-sleutel;
-    - volledige preview-URL.
-4. Configureer onder **Tekst TV → Inhoud & AI**:
-    - een werkende provider via WordPress Connectors;
-    - provider/model en prompts;
-    - `regio` als taxonomie voor de regioprefix;
-    - woord- en tekenlimieten.
-5. Test expliciet of het eerder gebruikte fine-tuned model door de gekozen provider wordt ondersteund. Kies anders een ondersteund model en valideer de output opnieuw.
-6. Bouw de loops voor `tv1` en `tv2` opnieuw op met weer- en artikelblokken en de regiofilters uit `analysis/FINDINGS.md`.
-7. Configureer in deze volgorde de drie gebruikte tickertypen uit de extensie: **Nu op FM**, **Vandaag op TV**, **Straks op FM**. **Morgen op TV** is beschikbaar maar werd in de oude productieconfiguratie niet gebruikt.
-8. Campagnes worden niet gemigreerd. Maak alleen actuele campagnegroepen en campagnes opnieuw aan wanneer ze nodig zijn; de oude campagnes waren verlopen.
+2. Controleer of het Streekomroep-thema actief is.
+3. Open **Tekst TV** en daarna **Instellingen**. Stel daar het volgende in:
+   - kanalen `tv1` en `tv2`
+   - features en standaardweergaveduren
+   - taxonomie `regio`
+   - OpenWeather One Call 3.0-sleutel
+   - volledige preview-URL
+4. Open **Inhoud & AI** en stel het volgende in:
+   - een provider via WordPress Connectors
+   - provider, model en prompts
+   - `regio` als taxonomie voor de regioprefix
+   - woord- en tekenlimieten
+5. Controleer of de provider het eerder gebruikte fine-tuned model ondersteunt. Kies anders een ondersteund model en beoordeel de output opnieuw.
+6. Bouw de loops voor `tv1` en `tv2` opnieuw op. De blokken en regiofilters staan in `analysis/FINDINGS.md`.
+7. Voeg in deze volgorde **Nu op FM**, **Vandaag op TV** en **Straks op FM** toe. **Morgen op TV** was in de oude configuratie niet in gebruik.
+8. Maak alleen nieuwe campagnes en campagnegroepen aan als ze nodig zijn. De oude campagnes waren verlopen.
 
-Sla een tickerconfiguratie met extensietypen niet op terwijl de extensie gedeactiveerd is: onbekende typen kunnen dan uit de configuratie verdwijnen.
+Sla een tickerconfiguratie met extensietypen niet op als de extensie uitstaat. TekstTV kan onbekende typen dan verwijderen.
 
-### 4. Feed en frontend valideren
+### Feed en frontend controleren
 
-Controleer eerst de REST-feed rechtstreeks, onafhankelijk van de frontend:
+Controleer eerst de REST-feed zonder de frontend:
 
 ```bash
 curl --fail --silent --show-error \
@@ -177,39 +179,39 @@ curl --fail --silent --show-error \
   'https://<wordpress-host>/wp-json/teksttv/v1/slides?channel=tv2'
 ```
 
-Controleer per kanaal minimaal:
+Controleer voor beide kanalen:
 
-- recente artikelen en correcte regiokeuze;
-- één paragraaf per gemigreerde tekst;
-- weerblok en tickerberichten;
-- afbeeldingen en lege-resultaatsituaties;
-- AI-audit: 4.548 bronbaselines en voor de geanalyseerde dump 1.285 ongewijzigde teksten.
+- recente artikelen en de juiste regioselectie
+- één alinea per gemigreerde tekst
+- weer en tickerberichten
+- afbeeldingen en lege resultaten
+- 4.548 AI-baselines en, voor deze dump, 1.285 ongewijzigde teksten
 
-Stel vervolgens de API-basis-URL in via de huidige, gedocumenteerde configuratiemethode van de TekstTV-frontend en deploy de frontend. Het aantal of de naam van frontendbronbestanden is bewust niet in dit runbook vastgelegd; dat is implementatiedetail van de frontendrelease. Valideer daarna de live- en previewweergave van beide kanalen.
+Stel daarna de API-basis-URL van de frontend in, deploy de frontend en controleer de live- en previewweergave van beide kanalen.
 
-### 5. Cutover en cleanup
+### Cutover en opruimen
 
-1. Stop wijzigingen in het oude systeem en voer zo nodig de laatste veilige `overwrite` uit.
-2. Herhaal de dry-run en de REST-/frontendcontroles.
-3. Zet de frontend definitief om naar de nieuwe REST-feed.
-4. Merge en deploy de goedgekeurde cleanup voor het Streekomroep-thema.
-5. Ruim pas na geslaagde validatie de oude postmeta en legacy opties op, waaronder `post_kabelkrant_datum_in`, `ttvgpt_api_key`, `ttvgpt_model` en `ttvgpt_word_limit`.
+1. Stop wijzigingen in het oude systeem en voer alleen indien veilig de laatste `overwrite` uit.
+2. Herhaal de dry-run en de controles van REST-feed en frontend.
+3. Zet de frontend om naar de nieuwe REST-feed.
+4. Deploy de goedgekeurde cleanup van het Streekomroep-thema.
+5. Verwijder oude postmeta en opties pas na de eindcontrole. Dit geldt onder andere voor `post_kabelkrant_datum_in`, `ttvgpt_api_key`, `ttvgpt_model` en `ttvgpt_word_limit`.
 6. Deactiveer en verwijder `zw-ttvgpt`.
-7. Roteer alle huidige en legacy OpenAI-credentials die in de productiedump voorkwamen.
-8. Verwijder `migrate-teksttv-posts.php` en eventuele tijdelijke database-exporten van de server.
+7. Roteer de huidige en oude OpenAI-credentials uit de productiedump.
+8. Verwijder de migrator en tijdelijke database-exporten van de server.
 
 ## Rollback
 
-Voer cleanup pas uit nadat de nieuwe feed en frontend zijn goedgekeurd. Zolang de oude code en bronmeta nog aanwezig zijn, bestaat de snelle rollback uit:
+Ruim het oude systeem pas op nadat de nieuwe feed en frontend zijn goedgekeurd. Zolang de oude code en bronmeta nog bestaan, is de snelle rollback:
 
-1. Frontend terugzetten naar de oude databron.
-2. TekstTV Streekomroep Extensions en TekstTV deactiveren.
-3. Het oude systeem actief laten.
+1. Zet de frontend terug naar de oude databron.
+2. Deactiveer TekstTV Streekomroep Extensions en TekstTV.
+3. Laat het oude systeem actief.
 
-De nieuwe `_teksttv_*`-meta is zonder de nieuwe plugin inert en hoeft voor een snelle rollback niet te worden verwijderd. Als de oude data al is opgeschoond of andere productiedata is gewijzigd, herstel dan de vooraf gemaakte databaseback-up volgens de geldende beheerprocedure.
+De nieuwe `_teksttv_*`-meta doet zonder TekstTV niets en hoeft voor deze rollback niet te worden verwijderd. Herstel de databaseback-up als de oude data al is opgeschoond of andere productiedata is gewijzigd.
 
-## Omgaan met productiedata
+## Productiedata
 
-Gebruik uitsluitend een afgeschermde, lokale kopie van de productiedatabase. Commit of deel nooit de dump zelf, database-identifiers, credentials of ongeschoonde uitvoer van de analysequeries. De bekende AI-instellingen worden door `analysis/analyze.sql` gemaskeerd, maar controleer alle uitvoer alsnog voordat die wordt gedeeld. Verwijder de lokale dump na afronding of bewaar hem versleuteld met zo beperkt mogelijke toegangsrechten.
+Werk alleen met een afgeschermde lokale kopie van de productiedatabase. Commit of deel nooit de dump, database-identifiers, credentials of ongeschoonde queryuitvoer. `analysis/analyze.sql` maskeert bekende AI-instellingen, maar controleer de uitvoer alsnog voordat je die deelt. Verwijder de lokale dump na afloop of bewaar hem versleuteld en met beperkte toegang.
 
-De migrator is getest tegen de databasekopie van 2026-08-04: 18.131 berichten, 4.548 AI-baselines, waarvan 1.285 ongewijzigd. Alle gemigreerde teksten kwamen uit op exact één paragraaf.
+Het script is getest op de databasekopie van 4 augustus 2026: 18.131 berichten en 4.548 AI-baselines, waarvan 1.285 ongewijzigd. Alle gemigreerde teksten kwamen uit op één alinea.
