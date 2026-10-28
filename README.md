@@ -11,7 +11,7 @@ Eenmalige migratie van Tekst TV in het [Streekomroep-thema](https://github.com/o
 ## Vereisten
 
 - WordPress 7.0 of nieuwer
-- PHP 8.3 of nieuwer
+- PHP 8.4 of nieuwer
 - WP-CLI op de server of in de beheercontainer
 - Een recente databaseback-up buiten de webroot en deze repository
 - De releasebestanden van TekstTV en [TekstTV Streekomroep Extensions](https://github.com/oszuidwest/teksttv-wp-extensions)
